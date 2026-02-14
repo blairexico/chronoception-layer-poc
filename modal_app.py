@@ -12,9 +12,6 @@ app = modal.App("chronoception")
 
 volume = Volume.from_name("temporal-facts-db", create_if_missing=True)
 
-chronoception_mount = modal.Mount.from_local_file("chronoception.py", remote_path="/root/chronoception.py")
-intervention_mount = modal.Mount.from_local_file("intervention.py", remote_path="/root/intervention.py")
-
 MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.3"
 
 
@@ -36,6 +33,8 @@ image = (
         "bitsandbytes",
     )
     .run_function(download_model)
+    .add_local_file("chronoception.py", "/root/chronoception.py")
+    .add_local_file("intervention.py", "/root/intervention.py")
 )
 
 
@@ -43,13 +42,10 @@ image = (
     gpu="T4",
     volumes={"/data": volume},
     image=image,
-    mounts=[chronoception_mount, intervention_mount],
     timeout=900,
 )
 def chat(user_id: str, messages: list, use_intervention: bool = False):
     """Multi-turn conversation with temporal awareness."""
-    import sys
-    sys.path.insert(0, "/root")
     from chronoception import ChronoceptionChat
 
     print(f"[chronoception] Loading model: {MODEL_NAME}")
