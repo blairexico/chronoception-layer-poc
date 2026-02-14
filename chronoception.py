@@ -434,7 +434,9 @@ class ChronoceptionChat:
 
     def initialize(self) -> None:
         """Load model and set up components. Call once before chat()."""
+        import os
         import transformers
+        os.environ["TQDM_DISABLE"] = "1"
         transformers.logging.set_verbosity_error()
 
         self.db = TemporalDatabase(self.db_path)
