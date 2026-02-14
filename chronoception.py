@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 logger = logging.getLogger(__name__)
 
@@ -408,8 +408,13 @@ class ChronoceptionChat:
         self.temporal = TemporalDistanceLayer()
         self.temporal.update_now()
 
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+        )
         self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name, device_map="auto", torch_dtype=torch.float16,
+            self.model_name, device_map="auto",
+            quantization_config=quantization_config,
         )
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.tokenizer.pad_token = self.tokenizer.eos_token

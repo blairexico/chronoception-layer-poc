@@ -39,7 +39,7 @@ image = (
 
 
 @app.function(
-    gpu="T4",
+    gpu="A10G",
     volumes={"/data": volume},
     image=image,
     timeout=900,
