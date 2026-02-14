@@ -39,6 +39,21 @@ image = (
 
 
 @app.function(
+    volumes={"/data": volume},
+    image=image,
+)
+def reset_user(user_id: str):
+    """Clear all stored facts for a user. Useful for clean demo runs."""
+    from chronoception import TemporalDatabase
+    db = TemporalDatabase()
+    count = db.delete_user_facts(user_id)
+    db.close()
+    volume.commit()
+    print(f"[chronoception] Reset {user_id}: deleted {count} facts")
+    return count
+
+
+@app.function(
     gpu="A10G",
     volumes={"/data": volume},
     image=image,
@@ -75,6 +90,9 @@ def demo():
     print("\n" + "=" * 60)
     print("CHRONOCEPTION - MODAL DEMO")
     print("=" * 60)
+
+    # Clean slate for demo
+    reset_user.remote(user_id)
 
     # Turn 1
     print("\n--- TURN 1 ---")

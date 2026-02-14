@@ -192,6 +192,34 @@ class TemporalDatabase:
             position_absolute=r['position_absolute'], confidence=r['confidence'],
         )
 
+    def find_fact_by_date(self, user_id: str, base_date: datetime) -> Optional[TemporalFact]:
+        """Check if a fact with this exact date already exists for this user."""
+        position = (base_date - EPOCH).days
+        row = self.conn.execute(
+            "SELECT * FROM temporal_facts WHERE user_id = ? AND position_absolute = ?",
+            (user_id, position),
+        ).fetchone()
+        if row is None:
+            return None
+        r = dict(row)
+        return TemporalFact(
+            fact_id=r['fact_id'], user_id=r['user_id'],
+            canonical_name=r['canonical_name'], fact_type=r['fact_type'],
+            base_date=datetime.fromisoformat(r['base_date']),
+            position_absolute=r['position_absolute'], confidence=r['confidence'],
+        )
+
+    def delete_user_facts(self, user_id: str) -> int:
+        """Delete all facts for a user. Returns count deleted."""
+        facts = self.conn.execute(
+            "SELECT fact_id FROM temporal_facts WHERE user_id = ?", [user_id]
+        ).fetchall()
+        for f in facts:
+            self.conn.execute("DELETE FROM fact_aliases WHERE fact_id = ?", [f['fact_id']])
+        cursor = self.conn.execute("DELETE FROM temporal_facts WHERE user_id = ?", [user_id])
+        self.conn.commit()
+        return cursor.rowcount
+
     def close(self) -> None:
         self.conn.close()
 
@@ -266,7 +294,11 @@ class TemporalFactExtractor:
 
         fact_ids: List[str] = []
         for ef in extracted:
-            if self.db.find_fact_by_alias(user_id, ef.event_name):
+            # Check alias (with underscore and space variants) and date
+            name_space = ef.event_name.replace('_', ' ')
+            if (self.db.find_fact_by_alias(user_id, ef.event_name)
+                    or self.db.find_fact_by_alias(user_id, name_space)
+                    or self.db.find_fact_by_date(user_id, ef.event_date)):
                 logger.info("Already known: %s", ef.event_name)
                 continue
 
@@ -480,6 +512,12 @@ class ChronoceptionChat:
         outputs = self.model.generate(**inputs, **gen_kwargs)
         response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         answer = response.split("[/INST]")[-1].strip()
+
+        # Strip echoed temporal context / conversation from response
+        if "TEMPORAL FACTS" in answer:
+            # Model echoed the context; take only text after the last "Assistant:"
+            parts = answer.split("Assistant:")
+            answer = parts[-1].strip() if len(parts) > 1 else answer
 
         return ChatResult(
             response=answer,
