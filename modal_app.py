@@ -15,11 +15,15 @@ app = modal.App("chronoception")
 
 volume = Volume.from_name("temporal-facts-db", create_if_missing=True)
 
-image = modal.Image.debian_slim().pip_install(
-    "transformers",
-    "torch",
-    "accelerate",
-    "bitsandbytes",
+image = (
+    modal.Image.debian_slim()
+    .pip_install(
+        "transformers",
+        "torch",
+        "accelerate",
+        "bitsandbytes",
+    )
+    .add_local_dir("chronoception", remote_path="/root/chronoception")
 )
 
 
