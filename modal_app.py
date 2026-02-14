@@ -1,11 +1,8 @@
-"""Modal deployment for the Chronoception temporal awareness system.
-
-Deploys the chat function as a Modal app with GPU support and
-persistent fact storage via Modal volumes.
+"""Modal deployment for Chronoception.
 
 Usage:
-    modal run modal_app.py          # Run the demo
-    modal deploy modal_app.py       # Deploy as a persistent app
+    modal run modal_app.py
+    modal deploy modal_app.py
 """
 
 import modal
@@ -23,7 +20,7 @@ image = (
         "accelerate",
         "bitsandbytes",
     )
-    .add_local_dir("chronoception", remote_path="/root/chronoception")
+    .add_local_python_source("chronoception", "intervention")
 )
 
 
@@ -34,31 +31,15 @@ image = (
     timeout=900,
 )
 def chat(user_id: str, messages: list, use_intervention: bool = False):
-    """Multi-turn conversation with temporal awareness.
+    """Multi-turn conversation with temporal awareness."""
+    from chronoception import ChronoceptionChat
 
-    Args:
-        user_id: Unique user identifier.
-        messages: List of {"role": "user"/"assistant", "content": "..."}.
-        use_intervention: Enable logits steering (Method B).
+    engine = ChronoceptionChat()
+    engine.initialize()
 
-    Returns:
-        Dict with response, learned_facts, total_facts, temporal_context.
-    """
-    import sys
-    sys.path.insert(0, "/root")
+    result = engine.chat(user_id=user_id, messages=messages, use_intervention=use_intervention)
 
-    from chronoception import ChronoceptionChat, ChronoceptionConfig, InterventionConfig
-
-    config = ChronoceptionConfig(
-        intervention=InterventionConfig(enabled=use_intervention),
-    )
-
-    chat_engine = ChronoceptionChat(config)
-    chat_engine.initialize()
-
-    result = chat_engine.chat(user_id=user_id, messages=messages)
-
-    chat_engine.close()
+    engine.close()
     volume.commit()
 
     return {
@@ -72,21 +53,17 @@ def chat(user_id: str, messages: list, use_intervention: bool = False):
 
 @app.local_entrypoint()
 def demo():
-    """Demo multi-turn conversation with temporal learning."""
-
     user_id = "demo_user"
 
     print("\n" + "=" * 60)
-    print("CHRONOCEPTION - MODAL DEPLOYMENT DEMO")
+    print("CHRONOCEPTION - MODAL DEMO")
     print("=" * 60)
 
     # Turn 1
     print("\n--- TURN 1 ---")
     result1 = chat.remote(
         user_id=user_id,
-        messages=[
-            {"role": "user", "content": "I started my blog on January 15, 2024"}
-        ],
+        messages=[{"role": "user", "content": "I started my blog on January 15, 2024"}],
     )
     print(f"Assistant: {result1['response']}")
     print(f"Learned: {result1['learned_facts']} facts")
