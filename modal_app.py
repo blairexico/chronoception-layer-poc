@@ -12,6 +12,9 @@ app = modal.App("chronoception")
 
 volume = Volume.from_name("temporal-facts-db", create_if_missing=True)
 
+chronoception_mount = modal.Mount.from_local_file("chronoception.py", remote_path="/root/chronoception.py")
+intervention_mount = modal.Mount.from_local_file("intervention.py", remote_path="/root/intervention.py")
+
 image = (
     modal.Image.debian_slim()
     .pip_install(
@@ -20,7 +23,6 @@ image = (
         "accelerate",
         "bitsandbytes",
     )
-    .add_local_python_source("chronoception", "intervention")
 )
 
 
@@ -28,10 +30,13 @@ image = (
     gpu="T4",
     volumes={"/data": volume},
     image=image,
+    mounts=[chronoception_mount, intervention_mount],
     timeout=900,
 )
 def chat(user_id: str, messages: list, use_intervention: bool = False):
     """Multi-turn conversation with temporal awareness."""
+    import sys
+    sys.path.insert(0, "/root")
     from chronoception import ChronoceptionChat
 
     engine = ChronoceptionChat()
