@@ -434,7 +434,8 @@ class ChronoceptionChat:
 
     def initialize(self) -> None:
         """Load model and set up components. Call once before chat()."""
-        logger.info("Loading model: %s", self.model_name)
+        import transformers
+        transformers.logging.set_verbosity_error()
 
         self.db = TemporalDatabase(self.db_path)
         self.temporal = TemporalDistanceLayer()
