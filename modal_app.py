@@ -15,6 +15,18 @@ volume = Volume.from_name("temporal-facts-db", create_if_missing=True)
 chronoception_mount = modal.Mount.from_local_file("chronoception.py", remote_path="/root/chronoception.py")
 intervention_mount = modal.Mount.from_local_file("intervention.py", remote_path="/root/intervention.py")
 
+MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.3"
+
+
+def download_model():
+    """Pre-download model weights at image build time."""
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    print(f"Downloading {MODEL_NAME}...")
+    AutoTokenizer.from_pretrained(MODEL_NAME)
+    AutoModelForCausalLM.from_pretrained(MODEL_NAME)
+    print("Model cached.")
+
+
 image = (
     modal.Image.debian_slim()
     .pip_install(
@@ -23,6 +35,7 @@ image = (
         "accelerate",
         "bitsandbytes",
     )
+    .run_function(download_model)
 )
 
 
@@ -39,10 +52,13 @@ def chat(user_id: str, messages: list, use_intervention: bool = False):
     sys.path.insert(0, "/root")
     from chronoception import ChronoceptionChat
 
-    engine = ChronoceptionChat()
+    print(f"[chronoception] Loading model: {MODEL_NAME}")
+    engine = ChronoceptionChat(model_name=MODEL_NAME)
     engine.initialize()
+    print("[chronoception] Model loaded, processing turn...")
 
     result = engine.chat(user_id=user_id, messages=messages, use_intervention=use_intervention)
+    print(f"[chronoception] Done. Learned {result.learned_facts} facts, {result.total_facts} total.")
 
     engine.close()
     volume.commit()
